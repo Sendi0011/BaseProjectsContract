@@ -37,7 +37,7 @@ contract DeployAll is Script {
         
         // Replace these with actual addresses
         beneficiaries[0] = deployer;
-        beneficiaries[1] = 0x742d35Cc6634C0532925a3b844Bc9e7595f0bEb1; // Example address
+        beneficiaries[1] = 0x742d35cC6634c0532925A3b844bc9E7595F0beB1; // Example address
         beneficiaries[2] = 0x5B38Da6a701c568545dCfcB03FcB875f56beddC4; // Example address
         
         shares[0] = 40; // 40%
@@ -66,10 +66,17 @@ contract DeployAll is Script {
         console.log("DecentralizedReputation:", address(reputation));
         
         console.log("\n=== Verification Commands ===");
-        console.log("forge verify-contract", address(subscriptionManager), "SubscriptionPaymentManager --chain-id 8453 --etherscan-api-key $BASESCAN_API_KEY");
-        console.log("forge verify-contract", address(escrow), "FreelancerEscrow --chain-id 8453 --etherscan-api-key $BASESCAN_API_KEY --constructor-args $(cast abi-encode \"constructor(address)\" ", feeCollector, ")");
-        console.log("forge verify-contract", address(splitter), "RevenueSplitter --chain-id 8453 --etherscan-api-key $BASESCAN_API_KEY");
-        console.log("forge verify-contract", address(reputation), "DecentralizedReputation --chain-id 8453 --etherscan-api-key $BASESCAN_API_KEY");
+        console.log("SubscriptionPaymentManager:");
+        console.log(string(abi.encodePacked("forge verify-contract ", vm.toString(address(subscriptionManager)), " SubscriptionPaymentManager --chain-id 8453 --etherscan-api-key $BASESCAN_API_KEY")));
+        
+        console.log("\nFreelancerEscrow:");
+        console.log(string(abi.encodePacked("forge verify-contract ", vm.toString(address(escrow)), " FreelancerEscrow --chain-id 8453 --etherscan-api-key $BASESCAN_API_KEY --constructor-args $(cast abi-encode \"constructor(address)\" ", vm.toString(feeCollector), ")")));
+        
+        console.log("\nRevenueSplitter:");
+        console.log(string(abi.encodePacked("forge verify-contract ", vm.toString(address(splitter)), " RevenueSplitter --chain-id 8453 --etherscan-api-key $BASESCAN_API_KEY")));
+        
+        console.log("\nDecentralizedReputation:");
+        console.log(string(abi.encodePacked("forge verify-contract ", vm.toString(address(reputation)), " DecentralizedReputation --chain-id 8453 --etherscan-api-key $BASESCAN_API_KEY")));
     }
 }
 

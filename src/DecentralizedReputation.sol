@@ -152,10 +152,10 @@ contract DecentralizedReputation is Ownable, ReentrancyGuard {
     }
 
     function calculateWeight(address user) public view returns (uint256) {
-        uint256 stake = stakedAmount[user];
-        if (stake == 0) return 0;
+        uint256 userStake = stakedAmount[user];
+        if (userStake == 0) return 0;
         
-        uint256 baseWeight = stake / MIN_STAKE;
+        uint256 baseWeight = userStake / MIN_STAKE;
         uint256 repScore = getReputationScore(user);
         
         return baseWeight + (repScore / 100);
