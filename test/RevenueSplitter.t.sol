@@ -3,7 +3,7 @@ pragma solidity ^0.8.20;
 
 import {Test, console} from "forge-std/Test.sol";
 import {RevenueSplitter} from "../src/RevenueSplitter.sol";
-import {ERC20Mock} from "./mocks/ERC20Mock.sol"; // Assuming a mock ERC20 for testing
+import {MyToken} from "../src/MyToken.sol";
 
 contract RevenueSplitterTest is Test {
     RevenueSplitter public splitter;
@@ -11,11 +11,11 @@ contract RevenueSplitterTest is Test {
     address public beneficiary1;
     address public beneficiary2;
     address public beneficiary3;
-    ERC20Mock public mockToken1;
-    ERC20Mock public mockToken2;
+    MyToken public myToken1;
+    MyToken public myToken2;
 
     function setUp() public {
-        owner = makeAddr("owner");
+        owner = address(this); // test contract is the owner of MyToken
         beneficiary1 = makeAddr("beneficiary1");
         beneficiary2 = makeAddr("beneficiary2");
         beneficiary3 = makeAddr("beneficiary3");
@@ -28,19 +28,19 @@ contract RevenueSplitterTest is Test {
         initialShares[0] = 50;
         initialShares[1] = 50;
 
-        vm.prank(owner);
         splitter = new RevenueSplitter(initialBeneficiaries, initialShares);
 
-        mockToken1 = new ERC20Mock("TokenA", "TKA", 18);
-        mockToken2 = new ERC20Mock("TokenB", "TKB", 18);
+        myToken1 = new MyToken();
+        myToken2 = new MyToken();
 
         vm.deal(address(splitter), 10 ether); // Fund splitter with ETH
-        mockToken1.mint(address(splitter), 1000 ether); // Fund splitter with tokens
-        mockToken2.mint(address(splitter), 500 ether); // Fund splitter with more tokens
+        
+        // Fund splitter with tokens
+        myToken1.transfer(address(splitter), 500 * 10 ** myToken1.decimals());
+        myToken2.transfer(address(splitter), 250 * 10 ** myToken2.decimals());
     }
 
     function test_AddBeneficiary() public {
-        vm.prank(owner);
         splitter.addBeneficiary(beneficiary3, 100);
 
         assertTrue(splitter.isBeneficiary(beneficiary3));
@@ -50,7 +50,6 @@ contract RevenueSplitterTest is Test {
     }
 
     function test_RemoveBeneficiary() public {
-        vm.prank(owner);
         splitter.removeBeneficiary(beneficiary1);
 
         assertFalse(splitter.isBeneficiary(beneficiary1));
@@ -59,7 +58,6 @@ contract RevenueSplitterTest is Test {
     }
 
     function test_UpdateShares() public {
-        vm.prank(owner);
         splitter.updateShares(beneficiary1, 100);
 
         assertEq(splitter.beneficiaries(0).shares, 100);
@@ -70,7 +68,6 @@ contract RevenueSplitterTest is Test {
         uint256 initialBeneficiary1Balance = beneficiary1.balance;
         uint256 initialBeneficiary2Balance = beneficiary2.balance;
 
-        vm.prank(owner); // Any address can call distribute, but for testing, let's use owner
         splitter.distributeETH();
 
         // 10 ether in splitter, 50/50 split
@@ -79,31 +76,29 @@ contract RevenueSplitterTest is Test {
     }
 
     function test_DistributeToken() public {
-        uint256 initialBeneficiary1Token1Balance = mockToken1.balanceOf(beneficiary1);
-        uint256 initialBeneficiary2Token1Balance = mockToken1.balanceOf(beneficiary2);
+        uint256 initialBeneficiary1Token1Balance = myToken1.balanceOf(beneficiary1);
+        uint256 initialBeneficiary2Token1Balance = myToken1.balanceOf(beneficiary2);
 
-        vm.prank(owner);
-        splitter.distributeToken(address(mockToken1));
+        splitter.distributeToken(address(myToken1));
 
-        // 1000 ether of mockToken1 in splitter, 50/50 split
-        assertEq(mockToken1.balanceOf(beneficiary1), initialBeneficiary1Token1Balance + 500 ether);
-        assertEq(mockToken1.balanceOf(beneficiary2), initialBeneficiary2Token1Balance + 500 ether);
+        // 500 ether of myToken1 in splitter, 50/50 split
+        assertEq(myToken1.balanceOf(beneficiary1), initialBeneficiary1Token1Balance + 250 * 10 ** myToken1.decimals());
+        assertEq(myToken1.balanceOf(beneficiary2), initialBeneficiary2Token1Balance + 250 * 10 ** myToken1.decimals());
     }
 
     function test_DistributeMultipleTokens() public {
         uint256 initialBeneficiary1ETHBalance = beneficiary1.balance;
         uint256 initialBeneficiary2ETHBalance = beneficiary2.balance;
-        uint256 initialBeneficiary1Token1Balance = mockToken1.balanceOf(beneficiary1);
-        uint256 initialBeneficiary2Token1Balance = mockToken1.balanceOf(beneficiary2);
-        uint256 initialBeneficiary1Token2Balance = mockToken2.balanceOf(beneficiary1);
-        uint256 initialBeneficiary2Token2Balance = mockToken2.balanceOf(beneficiary2);
+        uint256 initialBeneficiary1Token1Balance = myToken1.balanceOf(beneficiary1);
+        uint256 initialBeneficiary2Token1Balance = myToken1.balanceOf(beneficiary2);
+        uint256 initialBeneficiary1Token2Balance = myToken2.balanceOf(beneficiary1);
+        uint256 initialBeneficiary2Token2Balance = myToken2.balanceOf(beneficiary2);
 
         address[] memory tokensToDistribute = new address[](3);
         tokensToDistribute[0] = address(0); // ETH
-        tokensToDistribute[1] = address(mockToken1);
-        tokensToDistribute[2] = address(mockToken2);
+        tokensToDistribute[1] = address(myToken1);
+        tokensToDistribute[2] = address(myToken2);
 
-        vm.prank(owner);
         splitter.distributeMultipleTokens(tokensToDistribute);
 
         // ETH distribution
@@ -111,12 +106,12 @@ contract RevenueSplitterTest is Test {
         assertApproxEqAbs(beneficiary2.balance, initialBeneficiary2ETHBalance + 5 ether, 1e18);
 
         // Token1 distribution
-        assertEq(mockToken1.balanceOf(beneficiary1), initialBeneficiary1Token1Balance + 500 ether);
-        assertEq(mockToken1.balanceOf(beneficiary2), initialBeneficiary2Token1Balance + 500 ether);
+        assertEq(myToken1.balanceOf(beneficiary1), initialBeneficiary1Token1Balance + 250 * 10 ** myToken1.decimals());
+        assertEq(myToken1.balanceOf(beneficiary2), initialBeneficiary2Token1Balance + 250 * 10 ** myToken1.decimals());
 
         // Token2 distribution
-        assertEq(mockToken2.balanceOf(beneficiary1), initialBeneficiary1Token2Balance + 250 ether);
-        assertEq(mockToken2.balanceOf(beneficiary2), initialBeneficiary2Token2Balance + 250 ether);
+        assertEq(myToken2.balanceOf(beneficiary1), initialBeneficiary1Token2Balance + 125 * 10 ** myToken2.decimals());
+        assertEq(myToken2.balanceOf(beneficiary2), initialBeneficiary2Token2Balance + 125 * 10 ** myToken2.decimals());
     }
 
     function test_Fail_AddBeneficiary_NotOwner() public {
@@ -126,7 +121,6 @@ contract RevenueSplitterTest is Test {
     }
 
     function test_Fail_UpdateShares_NotBeneficiary() public {
-        vm.prank(owner);
         vm.expectRevert("Not a beneficiary");
         splitter.updateShares(makeAddr("nonBeneficiary"), 100);
     }
