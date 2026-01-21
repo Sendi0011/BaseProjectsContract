@@ -3,27 +3,26 @@ pragma solidity ^0.8.20;
 
 import {Test, console} from "forge-std/Test.sol";
 import {SubscriptionPaymentManager} from "../src/SubscriptionPaymentManager.sol";
-import {ERC20Mock} from "./mocks/ERC20Mock.sol"; // Assuming a mock ERC20 for testing
+import {MyToken} from "../src/MyToken.sol";
 
 contract SubscriptionPaymentManagerTest is Test {
     SubscriptionPaymentManager public manager;
     address public owner;
     address public subscriber;
     address public merchant;
-    ERC20Mock public mockToken;
+    MyToken public myToken;
     bytes32 public subId;
 
     function setUp() public {
-        owner = makeAddr("owner");
+        owner = address(this);
         subscriber = makeAddr("subscriber");
         merchant = makeAddr("merchant");
-        mockToken = new ERC20Mock("MockToken", "MTK", 18);
+        myToken = new MyToken();
 
-        vm.prank(owner);
         manager = new SubscriptionPaymentManager();
 
         vm.deal(subscriber, 10 ether); // Fund subscriber with ETH
-        mockToken.mint(subscriber, 1000 ether); // Fund subscriber with tokens
+        myToken.transfer(subscriber, 1000 * 10 ** myToken.decimals()); // Fund subscriber with tokens
     }
 
     function test_CreateSubscription_ETH() public {
@@ -49,12 +48,12 @@ contract SubscriptionPaymentManagerTest is Test {
         uint256 duration = 365 days;
         
         vm.prank(subscriber);
-        subId = manager.createSubscription(merchant, address(mockToken), amount, interval, duration);
+        subId = manager.createSubscription(merchant, address(myToken), amount, interval, duration);
         
         SubscriptionPaymentManager.Subscription memory sub = manager.getSubscription(subId);
 
         assertEq(sub.subscriber, subscriber);
-        assertEq(sub.token, address(mockToken));
+        assertEq(sub.token, address(myToken));
         assertEq(sub.amount, amount);
         assertTrue(sub.active);
     }
@@ -67,7 +66,6 @@ contract SubscriptionPaymentManagerTest is Test {
 
         uint256 initialMerchantBalance = merchant.balance;
 
-        vm.prank(owner); // Anyone can call processPayment
         manager.processPayment(subId, merchant);
 
         assertEq(merchant.balance, initialMerchantBalance + 1 ether);
@@ -80,16 +78,15 @@ contract SubscriptionPaymentManagerTest is Test {
         test_CreateSubscription_ERC20(); // Creates subId
 
         vm.prank(subscriber);
-        mockToken.approve(address(manager), 100 ether); // Approve manager to spend tokens
+        myToken.approve(address(manager), 100 ether); // Approve manager to spend tokens
         
         vm.warp(block.timestamp + 31 days); // Move time forward
 
-        uint256 initialMerchantTokenBalance = mockToken.balanceOf(merchant);
+        uint256 initialMerchantTokenBalance = myToken.balanceOf(merchant);
         
-        vm.prank(owner);
         manager.processPayment(subId, merchant);
 
-        assertEq(mockToken.balanceOf(merchant), initialMerchantTokenBalance + 100 ether);
+        assertEq(myToken.balanceOf(merchant), initialMerchantTokenBalance + 100 ether);
     }
 
     function test_CancelSubscription() public {
@@ -136,7 +133,6 @@ contract SubscriptionPaymentManagerTest is Test {
 
         vm.deal(address(manager), 1 ether);
 
-        vm.prank(owner);
         vm.expectRevert("Too early");
         manager.processPayment(subId, merchant);
     }
